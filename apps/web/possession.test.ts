@@ -50,7 +50,9 @@ describe('possession browser rules',()=>{
     const first=run('A0',5,1);
     const destination=commandElement(document,first);
     expect(destination.getAttribute('aria-label')).toMatch(/3 squares/);
-    expect(document.querySelector('.path-cost')?.textContent).toMatch(/[1-4]/);
+    const numeral=destination.nextElementSibling;
+    expect(numeral?.matches('text.path-cost')).toBe(true);
+    expect(numeral?.textContent).toBe('3');
     expect(commandElement(document,run('A0',4,2))).toBeUndefined(); // Occupied by the catcher.
     hit(destination);
     expect(document.querySelector('.stats')?.textContent).toMatch(/4MA.*1LEFT/);
@@ -226,12 +228,31 @@ describe('possession browser rules',()=>{
     expect(document.querySelector('.stats')?.textContent).toContain('4MA');
   });
 
+  it('prints the displayed legacy replay court using current rules instead of the hidden live court',async()=>{
+    const live=createMatch(config,5);
+    const record=applyCommand(createMatch({...legacy,court:'classic'},9),end);
+    writeSession(localStorage,live,'hotseat');
+    localStorage.setItem(oldKey,encodeSession(record,'hotseat'));
+    await boot();
+    expect(document.querySelectorAll('.arena .court .cell')).toHaveLength(144);
+    clickUi('legacyReplay');
+    expect(document.querySelector('.replay-bar')?.textContent).toContain('LEGACY REPLAY');
+    expect(document.querySelectorAll('.arena .court .cell')).toHaveLength(390);
+    clickUi('print');
+    expect.soft(document.querySelector('.modal[aria-labelledby="print-title"]')?.textContent).toContain('15 × 26 court');
+    expect.soft(document.querySelectorAll('#print-kit .court .cell')).toHaveLength(390);
+    expect.soft(document.querySelector('#print-kit')?.textContent).toContain('15 × 26 COURT · POSSESSION RULES');
+    expect.soft(document.querySelector('#print-kit .reference-page')?.textContent).toContain('3 forward steps in the activation and within 3 of the rim');
+    expect(readSession(localStorage)?.state).toEqual(live);
+  });
+
   it('prints v3 rules and effective movement with the original pitch credit and roster strengths',()=>{
     const kit=tabletopKit('arcade','possession');
     expect(kit).toMatch(/Possession rules/i);
     expect(kit).toContain('MA <b>4</b>');
     expect(kit).toMatch(/D8/);
     expect(kit).toMatch(/throw-in/i);
+    expect(kit).toContain('+1 if the carrier is stronger than the swatter');
     expect(kit).not.toMatch(/Blocks &amp; injury|GFI|AV 8\+/);
     expect(kit).toContain('James Peckham &amp; Robert Peckham');
     expect(kit).toContain('Gorilla Flip');
