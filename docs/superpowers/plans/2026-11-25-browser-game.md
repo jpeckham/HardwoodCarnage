@@ -84,3 +84,7 @@
   Independent review exercised 72 Turbo AI matches across all valid faction
   pairs. Its flaming-ball runner activation lock was reproduced and fixed by
   finishing the injured player's activation.
+- Final handoff: 47 tests, typecheck and build passed locally and in GitHub.
+  Deployment run 45650287579 attempt 3 succeeded after enabling Actions Pages and
+  permitting codex/browser-game in the deployment environment. Public page and
+  both production asset hashes were verified. README now points to the live game.

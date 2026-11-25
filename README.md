@@ -3,11 +3,12 @@
 Fantasy basketball with half-court flying dunks, crowd-surfing blocks,
 five-Goblin swarms, and an Ogre/Halfling cannon.
 
-**Deployment target:** https://jpeckham.github.io/HardwoodCarnage/
+**Play:** https://jpeckham.github.io/HardwoodCarnage/
 
-Hosting setup is pending: GitHub's Pages-creation API returned HTTP 500. Enable
-**GitHub Actions** as the source in [Pages settings](https://github.com/jpeckham/HardwoodCarnage/settings/pages),
-then rerun the deployment workflow. The target link is not verified live yet.
+GitHub Pages publishes through GitHub Actions from `codex/browser-game`. There
+is no branch selector in the Pages source setting when Actions is selected;
+the workflow specifies the branch. The `github-pages` environment permits this
+branch to deploy. Pushes rebuild, test, and publish the game automatically.
 
 Choose **Grak & Crumbleberry** on the **Turbo court** to try the signature play:
 the Ogre and Halfling start adjacent, the Halfling holds the ball, and **Halfling

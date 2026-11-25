@@ -15,7 +15,7 @@ ball-carrying Halfling through the hoop, and a public GitHub Pages link for frie
   and keep the arena short enough to fit a typical desktop viewport.
 - [x] Verify new/Classic rules, immutable paths, aerial failure/success, replay
   compatibility, complete AI matches, renderer geometry and deployment base paths.
-- [ ] Commit and push the complete source plus a GitHub Actions Pages workflow on
+- [x] Commit and push the complete source plus a GitHub Actions Pages workflow on
   the project branch; enable Pages, deploy, and verify the served HTML and assets.
 
 Decision: 9×16 is roughly one third of the original number of squares, keeping
@@ -35,3 +35,11 @@ returned blank HTTP 500 with workflow and branch-source payloads; GET still
 returns 404. Windows Computer Use ended because it could not confidently verify
 the browser URL. User has been asked to enable GitHub Actions as Pages source.
 Publication remains unverified; do not report the target URL as live yet.
+
+Resolved: James selected GitHub Actions in Pages settings. GET Pages confirmed
+workflow publishing enabled. The generated github-pages environment initially
+allowed only main; added the exact codex/browser-game branch policy, then reran
+failed deployment job in run 45650287579. Attempt 3 completed successfully.
+Public https://jpeckham.github.io/HardwoodCarnage/ returned HTTP 200. Both linked
+assets (index-CgIoCI5z.js and index-BOYvOJwd.css) were downloaded and their SHA256
+hashes matched the locally tested production build. Hosting is now verified live.
