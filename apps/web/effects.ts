@@ -1,5 +1,5 @@
 import { courtSize, rim, type GameEvent, type MatchState } from '../../packages/core/src/index.js';
-import { escape, jersey, xy } from './render.js';
+import { isBallCall, jersey, latestPlayCall, xy } from './render.js';
 let audio:AudioContext|undefined;
 export function unlockAudio():void { audio??=new AudioContext();void audio.resume(); }
 export function flightGeometry(s:MatchState,e:GameEvent) {
@@ -34,7 +34,7 @@ export function playEvents(events:GameEvent[],enabled:boolean,context:MatchState
         skid.className='skid';skid.style.left=`${(at.x+32)/width*100}%`;skid.style.top=`${(at.y+36)/height*100}%`;layer.append(skid);setTimeout(()=>skid.remove(),1800);
       }
     }
-    if(['shatter','score','fire','hit','crowd','dunk'].includes(e.kind)) {
+    if(['shatter','score','fire','hit','crowd','dunk'].includes(e.kind)||['swat','bat','strip','intercept','fall'].includes(e.kind)) {
       const arena=document.querySelector('.arena');
       if(!reduced) {arena?.classList.remove('impact');requestAnimationFrame(()=>arena?.classList.add('impact'));}
       if(e.kind==='shatter' && !reduced) {
@@ -49,6 +49,6 @@ export function playEvents(events:GameEvent[],enabled:boolean,context:MatchState
       }
     }
   }
-  const call=[...events].reverse().find(e=>['score','fire','shatter','crowd','final'].includes(e.kind));
+  const call=latestPlayCall(events.filter(e=>isBallCall(e)||['score','fire','shatter','crowd','final'].includes(e.kind)));
   if(enabled && call && 'speechSynthesis' in window) {speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(call.text);u.rate=1.15;u.pitch=.75;speechSynthesis.speak(u);}
 }

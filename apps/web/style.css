@@ -14,3 +14,14 @@
 @media screen and (max-width:500px){nav button{font-size:.6875rem}.team-score .eyebrow{font-size:.625rem}.game-clock span{font-size:.55rem}.arena-topline,.strip-title{font-size:.625rem}.announcer>span{font-size:.55rem}.roster-chip{min-width:100%}.roster-chip,.roster-chip>span{font-size:.8125rem}.game-footer>div{justify-content:flex-start}}
 
 .quick-end{font-size:.75rem;padding:.35rem .55rem;margin-left:auto;white-space:nowrap;background:#d7ab68;color:#252c24;border-color:#d7ab68}.quick-end+.shot-clock{margin-left:0}.cell.legal{fill:#c4ffd222;stroke:#e5f2af88;stroke-width:1;stroke-dasharray:none}@media(max-width:500px){.arena-topline{flex-wrap:wrap}.quick-end{font-size:.6875rem}.arena-topline>span:nth-child(2){max-width:55%}}
+.path-cost{fill:#fff7d8;stroke:#243e30;stroke-width:2.5px;paint-order:stroke;font:bold 13px Arial,sans-serif;pointer-events:none}
+.loose-ball{pointer-events:none}
+.inbound-target{fill:#ffe0a43d;stroke:#ffe5a8;stroke-width:2;stroke-dasharray:5 3;pointer-events:none}
+.inbound-target.available{cursor:pointer;pointer-events:auto}
+.inbound-target.available:hover,.inbound-target.available:focus-visible{fill:#ffe5a889;stroke:#fff7d9}
+.token.thrower{cursor:default}
+.token.thrower .selection{stroke:#ffcb7a;stroke-dasharray:none}
+.ball-status{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.3rem .8rem;padding:.45rem .85rem;background:#293b37;border:1px solid #526858;color:#d4e0cb;font-size:.75rem}
+.ball-status b{color:#ffdb9e}
+.legacy-note{margin-top:.75rem;padding:.55rem .65rem;border-left:2px solid #e6b77a;background:#273b3a}
+.event-log li:is(.event-swat,.event-bat,.event-strip,.event-intercept,.event-fall,.event-throwIn,.event-inbound,.event-recover){color:#f1c992}
