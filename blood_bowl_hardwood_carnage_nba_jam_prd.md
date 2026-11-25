@@ -102,6 +102,9 @@ matches use `hardwood-possession/3.0.0`, with `config.ruleset = possession`.
 
 ## 5. Passing, including from the ground
 
+- Release and flight contests apply to ordinary passes, alley-oop ball releases
+  and throw-in passes, including inbounds aimed at empty tiles. Special plays
+  must not silently bypass the new ball-defense rules.
 - A standing **or prone** ball carrier may pass to a standing teammate within
   6 squares. Passing while prone adds 1 to the normal AG pass target; adjacent
   enemies do not disable the action. Passing ends the passer's activation.
