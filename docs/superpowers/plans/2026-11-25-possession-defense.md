@@ -51,20 +51,20 @@ create core src/{rules,ball}.ts; create tests/possession-foundation.test.ts.
   Export their typed API via index.ts. Put all shared Step variants needed by Task 2
   in types.ts if convenient; no browser files in this task.
 
-- [ ] Write failing tests for effective MA/standing cost, no extra fire/GFI squares,
+- [x] Write failing tests for effective MA/standing cost, no extra fire/GFI squares,
   cumulative multi-command path limits and atomic unreachable commands.
-- [ ] Write failing tests for deterministic D8, loose recovery/failure, last-touch
+- [x] Write failing tests for deterministic D8, loose recovery/failure, last-touch
   reassignment on failed catches and all-edge throw-in entitlement/owner validation.
-- [ ] Run focused tests RED. Implement version selection/config validation, reduced
+- [x] Run focused tests RED. Implement version selection/config validation, reduced
   stats, backcourt starts (Turbo y2/13, Classic y5/20), six-square shot eligibility,
   strict movement paths and recover/throwIn commands before ordinary actions.
-- [ ] Implement bounded scatter/recovery, nearest free boundary thrower (stand for
+- [x] Implement bounded scatter/recovery, nearest free boundary thrower (stand for
   restart if needed), inbound catch/empty tile, and half/final supersession. An
   opponent recovery switches team turn once; a restart blocks unrelated commands.
-- [ ] Record touches in setup/collectBall; skip legacy burning armor for v3.
+- [x] Record touches in setup/collectBall; skip legacy burning armor for v3.
   Preserve original API behavior when ruleset is absent. Add full v3 replay tests
   for accepted actions and pending restarts plus config/rules mismatch rejection.
-- [ ] Run focused tests GREEN, full npm test and npm run typecheck. Commit and write
+- [x] Run focused tests GREEN, full npm test and npm run typecheck. Commit and write
   RED/GREEN evidence, changed files and any integration notes to task report.
 
 ### Task 2: Clean defense, falls and contested passes
@@ -77,29 +77,29 @@ movement,resolution,aerial,ai,match,types}.ts; create tests/possession-contact.t
 helpers; pass-line.ts exports a deterministic supercover line helper. Concrete
 signatures may follow the existing Step dispatcher, with new steps fully serializable.
 
-- [ ] Write failing tests for no body-action legality/atomic rejection; a swat
+- [x] Write failing tests for no body-action legality/atomic rejection; a swat
   releases/scatters without knocking the carrier down; automatic movement reactions
   happen on entering/leaving reach once per defender per opponent team turn.
-- [ ] Write failing tests for accepted dodge failure causing a prone fall, both
+- [x] Write failing tests for accepted dodge failure causing a prone fall, both
   AG retention and lost-ball outcomes, no injuries, and no double turnover after
   an out-of-bounds restart or opponent recovery during a fall/run.
-- [ ] Write failing tests for prone passing without standing, adjacency not disabling
+- [x] Write failing tests for prone passing without standing, adjacency not disabling
   pass, release strip/bat, route clean interception/bat, multiple contested squares,
   supercover diagonal crossings, stable defender order and release/flight dedup.
-- [ ] Run tests RED, implement PRD sections 3/5: active swat 3+ plus Dodge/strength
+- [x] Run tests RED, implement PRD sections 3/5: active swat 3+ plus Dodge/strength
   penalties; reactions 1–3 miss/4–5 bat/6 clean steal; failed dodge retains normal
   reroll opportunity; fall AG retention; no new body/armor effects.
-- [ ] Implement AG release, then path contests, then catch; prone adds 1 to release
+- [x] Implement AG release, then path contests, then catch; prone adds 1 to release
   AG. Failed release/catch uses correct last toucher and scatter before its normal
   turnover. Queue execution stops on turn/control change, fall or restart.
-- [ ] Keep prepared aerial flair but reduce Turbo launch/throw range to 6, keep
+- [x] Keep prepared aerial flair but reduce Turbo launch/throw range to 6, keep
   two-step run-up and remove the fire run-up waiver in v3. Aerial failures fall and
   may retain the ball; glass/fire no longer cause armor or injuries.
-- [ ] Update AI for restarts, recoveries, prone passes, legal swats and strict
+- [x] Update AI for restarts, recoveries, prone passes, legal swats and strict
   movement. Add complete seeded v3 matches with valid occupancy, valid prone/standing
   carrier ownership and exact replay; show all factions lack an opening score and
   defenders can contest a prepared drive. Preserve legacy regression tests.
-- [ ] Run focused tests GREEN, full npm test, typecheck and headless match. Commit
+- [x] Run focused tests GREEN, full npm test, typecheck and headless match. Commit
   and write the task report with RED/GREEN evidence and control-ordering notes.
 
 ### Task 3: Browser rules, guidance, verification and publication
@@ -110,21 +110,21 @@ README.md; runner.ts; UI/persistence regression tests and final validation recor
 **Interfaces consumed:** v3 config, effective player.ma, ball.lastTouch, throwIn,
 new legal swat/recover/throwIn actions, pass eligibility for prone carriers.
 
-- [ ] Write failing render/session tests: exact MA/path-cost label and highlights;
+- [x] Write failing render/session tests: exact MA/path-cost label and highlights;
   prone Pass/Recover controls; Swat replaces body contact; inbound owner/targets
   are visible, controllable and block unrelated actions; legacy save is read-only.
-- [ ] Run focused tests RED; default all new browser matches/rematches to v3.
+- [x] Run focused tests RED; default all new browser matches/rematches to v3.
   Preserve legacy records for replay and show the new setup before starting v3;
   do not silently overwrite an old autosave at launch.
-- [ ] Update solo controller ownership/AI scheduling, court inbound highlights and
+- [x] Update solo controller ownership/AI scheduling, court inbound highlights and
   labels, fall/loose-ball/last-touch/recovery log and help. Show base roster identity
   but effective movement only in actionable stats; show actual path cost around
   blockers. New banner/print copy must not claim shoves, injuries or extra GFI.
-- [ ] Update printed cards/rules and README for this playtest, retaining original
+- [x] Update printed cards/rules and README for this playtest, retaining original
   credits and prepared dunk/throw spectacle. Runner uses v3 and verifies a full match.
-- [ ] Run focused tests GREEN, full suite, typecheck, build, runner and independent
-  task review. Commit. Controller then runs final whole-branch review, resolves
-  material findings, pushes codex/browser-game, waits for Pages deployment and
+- [x] Run focused tests GREEN, full suite, typecheck, build, runner and independent
+  task review. Commit. Controller runs final whole-branch review and resolves
+  material findings. Publication: push codex/browser-game, wait for Pages deployment and
   verifies live HTML and both asset hashes against dist.
 
 ## Progress
@@ -132,3 +132,8 @@ new legal swat/recover/throwIn actions, pass eligibility for prone carriers.
 - Initial state: clean codex/browser-game at 41bbd4c; v2 was live with 47 tests.
 - PRD updated before any implementation. User's direct instruction includes
   implementation and explicitly selects subagent-driven execution.
+
+- All three tasks and final scoped fix review approved; 168 tests, typecheck and
+  build pass. Final runner reconstructs exactly. See the
+  [verification record](../verification/2026-11-25-possession-defense.md)
+  for evidence and release checks.
