@@ -1,4 +1,4 @@
-import { distance, inBounds, isRim, neighbors, rim, same, shotPoints } from './court.js';
+import { distance, neighbors, rim, shotPoints } from './court.js';
 
 import { endTurn, enemies, event, finish, player, team, validCell } from './match.js';
 
@@ -16,15 +16,18 @@ import { aerialSteps, canAerial, canFormLadder, ladderHelpers } from './aerial.j
 
 import { canRecoverBall, performThrowIn, recoverBall, throwInActions } from './ball.js';
 
+import { canPassTo, canSwat, possessionPassSteps, resolveInboundContests, swat } from './contact.js';
+
 import { isPossessionGame, movementRemaining } from './rules.js';
 
 const assert=(condition:unknown,message:string):void=>{if(!condition) throw new Error(message);};
+const legacyContactCommands=new Set<Command['type']>(['block','steal','chooseBlock','brawler','push','follow']);
 
-function actor(s:MatchState,id:string):Player {
+function actor(s:MatchState,id:string,allowProne=false):Player {
 
   const p=player(s,id);
 
-  assert(p.team===s.current && !p.used && !p.offCourt && p.status==='standing','Player cannot act');
+  assert(p.team===s.current && !p.used && !p.offCourt && (p.status==='standing'||(allowProne&&p.status==='prone')),'Player cannot act');
 
   assert(!s.active || s.active===p.id,'Finish the active player first');
 
@@ -43,7 +46,8 @@ function pass(s:MatchState,p:Player,targetId:string):void {
 
   const q=player(s,targetId);
 
-  assert(s.ball.carrier===p.id && q.team===p.team && q.id!==p.id && !q.offCourt && q.status==='standing' && distance(p.pos,q.pos)<=6,'Illegal pass');
+  assert(canPassTo(s,p,q),'Illegal pass');
+  if(isPossessionGame(s)) {resolveSteps(s,possessionPassSteps(s,p,q));return;}
 
   const fail:Step[]=[{type:'ball',playerId:null,pos:{...q.pos}},{type:'turnover',reason:'dropped pass/catch'}];
 
@@ -76,10 +80,15 @@ function shoot(s:MatchState,p:Player):void {
 function execute(s:MatchState,c:Command):void {
 
   assert(!s.over,'Match is over');
+  const possession=isPossessionGame(s);
+  if(possession) {
+    assert(!legacyContactCommands.has(c.type),'Body contact commands are unavailable under possession rules');
+    assert(!s.pending||s.pending.type==='check','Invalid possession-rules decision');
+  }
 
-  if(isPossessionGame(s)&&s.throwIn) {
+  if(possession&&s.throwIn) {
     if(c.type!=='throwIn')throw new Error('Complete the throw-in first');
-    performThrowIn(s,c.playerId,c.to);return;
+    performThrowIn(s,c.playerId,c.to,resolveInboundContests);return;
   }
 
   if(s.pending) {
@@ -114,7 +123,7 @@ function execute(s:MatchState,c:Command):void {
 
   if(c.type==='recover') {
     const p=player(s,c.playerId);
-    assert(isPossessionGame(s)&&canRecoverBall(s,p),'Player cannot recover the ball here');
+    assert(possession&&canRecoverBall(s,p),'Player cannot recover the ball here');
     s.active=p.id;recoverBall(s,p);return;
   }
 
@@ -126,14 +135,13 @@ function execute(s:MatchState,c:Command):void {
 
     assert(p.status==='prone' && !p.offCourt && p.team===s.current && !p.used && (!s.active||s.active===p.id),'Cannot stand');
 
-    const possession=isPossessionGame(s);
     assert(!possession||movementRemaining(s,p)>0,'Standing requires one movement square');
     p.status='standing';p.moved=possession?p.moved+1:3;s.active=p.id;event(s,'stand',`${p.name} gets up`,p);return;
 
   }
 
   if(s.config.court==='arcade'&&c.type==='throwTeamMate'&&s.active===c.targetId&&s.ball.carrier===c.targetId)finish(s,c.targetId);
-  const p=actor(s,c.playerId);
+  const p=actor(s,c.playerId,possession&&(c.type==='pass'||(c.type==='endActivation'&&s.active===c.playerId)));
 
   switch(c.type) {
 
@@ -158,6 +166,8 @@ function execute(s:MatchState,c:Command):void {
     case 'shoot': shoot(s,p);break;
 
     case 'pass':pass(s,p,c.targetId);break;
+
+    case 'swat':swat(s,p,player(s,c.targetId));break;
 
     case 'block': {
 
@@ -255,6 +265,7 @@ export function legalActions(s:MatchState,playerId?:string):Command[] {
   if(s.over) return [];
 
   const possession=isPossessionGame(s);
+  if(possession&&s.pending&&s.pending.type!=='check')return [];
   if(possession&&s.throwIn)return throwInActions(s,playerId);
 
   const b=s.pending;
@@ -290,6 +301,10 @@ export function legalActions(s:MatchState,playerId?:string):Command[] {
     if(possession&&canRecoverBall(s,p))result.push({type:'recover',playerId:p.id});
 
     if(p.status==='prone') {
+      if(possession) {
+        if(s.active===p.id)result.push({type:'endActivation',playerId:p.id});
+        for(const q of s.players)if(canPassTo(s,p,q))result.push({type:'pass',playerId:p.id,targetId:q.id});
+      }
       if(!possession||movementRemaining(s,p)>0)result.push({type:'stand',playerId:p.id});
       continue;
     }
@@ -304,11 +319,16 @@ export function legalActions(s:MatchState,playerId?:string):Command[] {
 
     if(movementRemaining(s,p)>0) for(const to of neighbors(p.pos)) if(validCell(s,to)) result.push({type:'move',playerId:p.id,to});
 
+    if(possession&&s.ball.carrier) {
+      const carrier=player(s,s.ball.carrier);
+      if(canSwat(s,p,carrier))result.push({type:'swat',playerId:p.id,targetId:carrier.id});
+    }
+
     for(const q of s.players.filter(q=>q.id!==p.id && !q.offCourt && q.status==='standing')) {
 
       if(q.team===p.team) {
 
-        if(s.ball.carrier===p.id && distance(p.pos,q.pos)<=6) result.push({type:'pass',playerId:p.id,targetId:q.id});
+        if(canPassTo(s,p,q)) result.push({type:'pass',playerId:p.id,targetId:q.id});
 
         for(const type of ['alleyOop','throwTeamMate'] as const) for(let spins=0;spins<=3;spins++) {
 
@@ -316,7 +336,7 @@ export function legalActions(s:MatchState,playerId?:string):Command[] {
 
         }
 
-      } else if(distance(p.pos,q.pos)===1) {
+      } else if(!possession&&distance(p.pos,q.pos)===1) {
 
         if(!p.moved) result.push({type:'block',playerId:p.id,targetId:q.id,blitz:false});
 

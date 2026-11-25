@@ -96,6 +96,7 @@ export function loseBall(s:MatchState,p:Player):void {
   if(s.ball.carrier===p.id) s.ball={carrier:null,pos:clampToCourt(p.pos,s),hot:s.ball.hot||p.fire,...(isPossessionGame(s)?{lastTouch:p.id}:{})};
 }
 export function injure(s:MatchState,p:Player,source?:Player,crowd=false):void {
+  if(isPossessionGame(s))throw new Error('Body injuries are unavailable under possession rules');
   s.ladders=s.ladders.filter(ids=>!ids.includes(p.id));
   loseBall(s,p); p.status='prone';
   const c=courtSize(s);

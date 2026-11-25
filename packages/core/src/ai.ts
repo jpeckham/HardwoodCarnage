@@ -1,12 +1,60 @@
 import { legalActions } from './actions.js';
-import { courtSize, distance, inBounds, rim } from './court.js';
-import { player } from './match.js';
+import { passContests } from './contact.js';
+import { distance, inBounds, rim, type Position } from './court.js';
+import { enemies, occupant, player } from './match.js';
+import { isPossessionGame } from './rules.js';
 import type { BlockFace, Command, MatchState } from './types.js';
 
 const faceValue:Record<BlockFace,number>={'Attacker Down':-4,'Both Down':-1,'Push':1,'Defender Stumbles':3,'POW!':4};
+
+function choosePossessionCommand(s:MatchState,actions:Command[]):Command {
+  const goal=rim(s.current,s.half,s);
+  const contestCount=(id:string,to:Position)=>{
+    const {release,flight}=passContests(s,player(s,id),to);return release.length+flight.length;
+  };
+  if(s.throwIn) {
+    const inbounds=actions.filter(c=>c.type==='throwIn').map(c=>({command:c,receiver:occupant(s,c.to),risk:contestCount(c.playerId,c.to)}));
+    inbounds.sort((a,b)=>a.risk-b.risk||Number(!!b.receiver&&!b.receiver.used)-Number(!!a.receiver&&!a.receiver.used)
+      ||distance(a.command.to,goal)-distance(b.command.to,goal));
+    return inbounds[0]!.command;
+  }
+
+  const recover=actions.find(c=>c.type==='recover');if(recover)return recover;
+  const swat=actions.find(c=>c.type==='swat');if(swat)return swat;
+  const aerial=actions.find(c=>'spins'in c&&c.spins===1);if(aerial)return aerial;
+
+  const carrier=s.ball.carrier?player(s,s.ball.carrier):null;
+  const target=carrier?.team===s.current?goal:s.ball.pos;
+  const controlled=s.players.filter(p=>p.team===s.current&&!p.used&&!p.offCourt&&(!s.active||s.active===p.id));
+  controlled.sort((a,b)=>Number(b===carrier)-Number(a===carrier)||distance(a.pos,target)-distance(b.pos,target)||a.id.localeCompare(b.id));
+  for(const p of controlled) {
+    const own=actions.filter(c=>'playerId'in c&&c.playerId===p.id);
+    const stand=own.find(c=>c.type==='stand');
+    const shoot=own.find(c=>c.type==='shoot');
+    if(shoot)return shoot;
+    const outlets=own.filter(c=>c.type==='pass').map(c=>({command:c,receiver:player(s,c.targetId)}))
+      .map(x=>({...x,risk:contestCount(p.id,x.receiver.pos)}));
+    outlets.sort((a,b)=>a.risk-b.risk||Number(a.receiver.used)-Number(b.receiver.used)
+      ||distance(a.receiver.pos,goal)-distance(b.receiver.pos,goal));
+    const outlet=outlets[0];
+    if(p.status==='prone') {
+      if(outlet&&(!stand||(!outlet.risk&&!outlet.receiver.used)))return outlet.command;
+      if(stand)return stand;
+    }
+    const runs=own.filter(c=>c.type==='run');
+    runs.sort((a,b)=>distance(a.to,target)-distance(b.to,target)||enemies(s,p,a.to).length-enemies(s,p,b.to).length);
+    const run=runs.find(c=>distance(c.to,target)<distance(p.pos,target));
+    if(outlet&&!outlet.risk&&!outlet.receiver.used&&distance(outlet.receiver.pos,goal)<distance(run?.to??p.pos,goal))return outlet.command;
+    if(run)return run;
+    const end=own.find(c=>c.type==='endActivation');if(end)return end;
+  }
+  return {type:'endTurn'};
+}
+
 export function chooseAiCommand(s:MatchState):Command {
   const actions=legalActions(s);
   if(!actions.length) throw new Error('No actions: match is over');
+  if(isPossessionGame(s)&&s.throwIn)return choosePossessionCommand(s,actions);
   const b=s.pending;
   if(b) {
     if(b.type==='check') return actions.find(c=>c.type==='reroll'&&c.source==='skill')??actions.find(c=>c.type==='reroll')??actions[0]!;
@@ -18,6 +66,7 @@ export function chooseAiCommand(s:MatchState):Command {
     if(b.type==='push') return actions.find(c=>c.type==='push'&&!inBounds(c.to,s))??actions[0]!;
     return {type:'follow',yes:true};
   }
+  if(isPossessionGame(s))return choosePossessionCommand(s,actions);
   const controlled=s.players.filter(p=>p.team===s.current && !p.used && !p.offCourt && (!s.active||s.active===p.id) && (p.status==='standing'||p.status==='prone'));
   controlled.sort((a,b)=>Number(s.ball.carrier===b.id)-Number(s.ball.carrier===a.id)||a.id.localeCompare(b.id));
   for(const p of controlled) {

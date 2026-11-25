@@ -1,9 +1,10 @@
 export interface Position { x: number; y: number }
 export type CourtMode='classic'|'arcade';
-type Context={config:{court?:CourtMode}};
+type Context={config:{court?:CourtMode;ruleset?:'possession'}};
 export function courtSize(context?:Context) {
+  const turboRange=context?.config.ruleset==='possession'?6:8;
   return context?.config.court==='arcade'
-    ?{width:9,length:16,center:4,paintDepth:4,paintLeft:3,paintRight:5,arc:4,runUp:2,dunkRange:8,throwRange:8,turnsPerHalf:6}
+    ?{width:9,length:16,center:4,paintDepth:4,paintLeft:3,paintRight:5,arc:4,runUp:2,dunkRange:turboRange,throwRange:turboRange,turnsPerHalf:6}
     :{width:15,length:26,center:7,paintDepth:6,paintLeft:5,paintRight:9,arc:6,runUp:3,dunkRange:3,throwRange:6,turnsPerHalf:8};
 }
 export function inBounds(p: Position,context?:Context): boolean {

@@ -33,7 +33,11 @@ export type Step =
   | {type:'move'; playerId:string; to:Position}
   | {type:'walk'; playerId:string; to:Position}
   | {type:'knock'; playerId:string; sourceId?:string}
+  | {type:'fall'; playerId:string; reason:string}
+  | {type:'ballContest'; stage:'movement'|'release'|'flight'; playerId:string; defenderId:string; at:Position}
+  | {type:'touch'; playerId:string}
   | {type:'ball'; playerId:string|null; pos?:Position; hot?:boolean}
+  | {type:'dropPass'; playerId:string; lastTouchId:string; at:Position; reason:string}
   | {type:'recover'; playerId:string}
   | {type:'scatter'; from:Position; lastTouchId?:string}
   | {type:'finish'; playerId:string}

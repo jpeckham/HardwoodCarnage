@@ -120,14 +120,16 @@ export function throwInActions(s:MatchState,selectedId?:string):Extract<Command,
   return commands;
 }
 
-export function performThrowIn(s:MatchState,playerId:string,to:Position):void {
+/** A command may resolve release and flight contests before the destination is reached. */
+export function performThrowIn(s:MatchState,playerId:string,to:Position,contest?:(s:MatchState,thrower:Player,to:Position)=>boolean):void {
   if(!canThrowInTo(s,playerId,to))throw new Error('Illegal throw-in player or destination');
   const thrower=player(s,playerId),target=occupant(s,to);
   if(thrower.team!==s.current||thrower.offCourt||thrower.status!=='standing'||!same(thrower.pos,s.throwIn!.spot))throw new Error('Throw-in player is not ready');
   s.throwIn=null;
   finish(s,playerId);
   markTouch(s,playerId);
-  restBall(s,to);
   event(s,'inbound',`${thrower.name} throws the ball in`,thrower);
+  if(contest?.(s,thrower,to))return;
+  restBall(s,to);
   if(target&&!tryCatch(s,target,'Inbound catch'))scatterBall(s,to,target.id);
 }

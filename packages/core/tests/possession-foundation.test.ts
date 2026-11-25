@@ -241,7 +241,7 @@ describe('possession loose balls and throw-ins', () => {
     const s = make();
     Object.assign(get(s), { pos: { x: 1, y: 8 }, status: 'prone', moved: 2, used: true });
     Object.assign(get(s, 'A1'), { moved: 1, used: true });
-    get(s, 'B0').pos = { x: 0, y: 8 };
+    Object.assign(get(s, 'B0'), { pos: { x: 0, y: 8 }, status: 'prone' }); // Occupies the tile without contesting the inbound.
     awardThrowIn(s, { x: -1, y: 8 }, 'B0');
     expect(s.throwIn).toMatchObject({ team: 'A', throwerId: 'A0' });
     expect(s.throwIn!.spot.x).toBe(0);
@@ -261,7 +261,7 @@ describe('possession loose balls and throw-ins', () => {
     const s = make();
     get(s, 'A0').pos = { x: 4, y: 0 };
     get(s, 'A1').pos = { x: 3, y: 1 };
-    get(s, 'B0').pos = { x: 5, y: 1 };
+    Object.assign(get(s, 'B0'), { pos: { x: 5, y: 1 }, status: 'prone' }); // Illegal receiver, not a release marker.
     awardThrowIn(s, { x: 4, y: -1 }, 'B0');
     const inbound = (to: Position): Command => ({ type: 'throwIn', playerId: 'A0', to });
     for (const to of [{ x: 4, y: 0 }, { x: 4, y: 1 }, { x: 5, y: 1 }, { x: 4, y: -1 }, { x: 4, y: 4 }]) {
