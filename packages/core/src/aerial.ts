@@ -1,6 +1,6 @@
 import { courtSize, distance, rim } from './court.js';
 
-import { passContests } from './contact.js';
+import { canPassTo, passContests } from './contact.js';
 
 import { other, player } from './match.js';
 
@@ -40,7 +40,10 @@ export function canAerial(s:MatchState,c:Command):c is AerialCommand {
 
     if(q.id===p.id || q.team!==p.team || q.offCourt || q.status!=='standing') return false;
 
-    if(c.type==='alleyOop') return s.ball.carrier===p.id && distance(p.pos,target)<=geometry.throwRange && distance(q.pos,target)<=geometry.dunkRange && q.forward>=geometry.runUp;
+    if(c.type==='alleyOop') {
+      const canRelease=isPossessionGame(s)?canPassTo(s,p,q):s.ball.carrier===p.id;
+      return canRelease && distance(p.pos,target)<=geometry.throwRange && distance(q.pos,target)<=geometry.dunkRange && q.forward>=geometry.runUp;
+    }
 
     return p.skills.includes('Throw Team-Mate') && q.skills.includes('Right Stuff') && s.ball.carrier===q.id && distance(p.pos,q.pos)===1 && distance(p.pos,target)<=geometry.throwRange;
 

@@ -340,6 +340,27 @@ describe('possession aerials and AI',()=>{
     expect(applyCommand(s,oop).teams[0]!.score).toBe(2);
   });
 
+  it('offers and completes a prepared v3 alley-oop across exactly six squares',()=>{
+    const s=make(56);place(s,'A0',0,9);place(s,'A1',6,10).forward=2;
+    const oop={type:'alleyOop',playerId:'A0',targetId:'A1',spins:0} as const;
+    expect(legalActions(s,'A0')).toContainEqual(oop);
+    expect(applyCommand(s,oop).teams[0]!.score).toBe(2);
+  });
+
+  it.each([7,8])('rejects a v3 alley-oop of %i squares atomically even when both players are in rim range',x=>{
+    const s=make(56);place(s,'A0',0,9);place(s,'A1',x,10).forward=2;
+    const oop={type:'alleyOop',playerId:'A0',targetId:'A1',spins:0} as const;
+    expect.soft(legalActions(s,'A0').some(c=>c.type==='alleyOop')).toBe(false);
+    reject(s,oop);
+  });
+
+  it('preserves a legacy Turbo alley-oop across eight squares',()=>{
+    const s=createMatch(legacyConfig,56);place(s,'A0',0,9);place(s,'A1',8,10).forward=2;
+    const oop={type:'alleyOop',playerId:'A0',targetId:'A1',spins:0} as const;
+    expect(legalActions(s,'A0')).toContainEqual(oop);
+    expect(applyCommand(s,oop).teams[0]!.score).toBe(2);
+  });
+
   it('also caps the Halfling cannon to six while preserving a legal prepared throw',()=>{
     const s=make(56,{teamA:'Grak & Crumbleberry'});place(s,'A0',4,7);place(s,'A1',5,7);
     const cannon={type:'throwTeamMate',playerId:'A0',targetId:'A1',spins:0} as const;
