@@ -3,7 +3,11 @@
 Fantasy basketball with half-court flying dunks, crowd-surfing blocks,
 five-Goblin swarms, and an Ogre/Halfling cannon.
 
-**Play:** https://jpeckham.github.io/HardwoodCarnage/
+**Deployment target:** https://jpeckham.github.io/HardwoodCarnage/
+
+Hosting setup is pending: GitHub's Pages-creation API returned HTTP 500. Enable
+**GitHub Actions** as the source in [Pages settings](https://github.com/jpeckham/HardwoodCarnage/settings/pages),
+then rerun the deployment workflow. The target link is not verified live yet.
 
 Choose **Grak & Crumbleberry** on the **Turbo court** to try the signature play:
 the Ogre and Halfling start adjacent, the Halfling holds the ball, and **Halfling
