@@ -1,84 +1,157 @@
-# Product Requirements Document: *Blood Bowl: Hardwood Carnage* (*NBA Jam* Edition)
+# Product Requirements: Blood Bowl — Hardwood Carnage
 
-**Subtitle:** 2v2 (and 5-Goblin Swarm) Arcade Fantasy Basketball with Flaming Spin Dunks & Backboard Shatters
+**Authors:** James Peckham & Robert Peckham · original pitch February 2022.
+**Current revision:** November 25, 2026 — possession, defense and movement rebalance.
+**Implementation:** deterministic TypeScript browser game, developed in Codex.
+**Play:** https://jpeckham.github.io/HardwoodCarnage/
 
-**Original Pitch By:** James Peckham & Robert Peckham (February 2022)
+## 1. Current direction and precedence
 
-**Development Environment:** Codex, working in this repository.
+Keep the small court and fantasy basketball spectacle, while giving defense a
+real chance to stop a drive. Contact contests the ball; deliberate body blocks,
+fouls, shoves, crowd surfing and injury actions are not part of new matches.
+Players can naturally stumble or land badly and fall without being fouled.
 
-**Current browser direction (James, November 25, 2026):** Turbo mode defaults to
-a smaller 9 × 16 court, six turns per team per half, one-click runs, half-court
-spin dunks after two forward steps, and eight-square Ogre/Halfling cannon plays.
-The original dimensions and distances below remain available as Classic mode.
-Publish the browser game on GitHub Pages for friends to play.
+This revision supersedes the earlier body-contact, unlimited-GFI and opening
+Halfling-cannon balance rules. Historical rules versions 1 and 2 remain available
+for exact replay reconstruction, not as defaults for new browser matches. New
+matches use `hardwood-possession/3.0.0`, with `config.ruleset = possession`.
 
-## 1. Executive Summary & Vision
+## 2. Court, rosters and pacing
 
-*Blood Bowl: Hardwood Carnage* is a fast-paced, turn-based tactical arcade basketball game fusing *Blood Bowl*'s gridiron violence, asymmetric fantasy rosters, and push-your-luck dice rolls (`GFI`, `Blitz`, `Armor Rolls`) with the over-the-top 2v2 spectacle of *NBA Jam*. Coaches field star duos—or an asymmetric **5-Goblin Swarm**—on a polished hardwood court where shoving defenders into the bleachers is legal, alley-oops chain into flaming $720^\circ$ spin dunks, and three consecutive buckets ignite players in literal flames capable of shattering glass backboards.
+- Turbo remains the default **9 × 16** court with six team turns per half.
+  Classic geometry remains 15 × 26 with eight team turns per half.
+- Preserve all faction identities and original MA/ST/AG/skills as roster data:
+  Humans (Blitzer 7/3/3+, Catcher 8/2/2+); Orcs (Black Orc 4/4/5+, Blitzer
+  6/3/3+); Skaven (Gutter Runner 9/2/2+, Rat Ogre 6/5/4+); Grak & Crumbleberry
+  (Ogre 5/5/4+, Halfling 5/2/3+); five Goblins (base 6/2/3+) versus a duo.
+- **Balance default:** effective on-court MA is `min(4, max(2, ceil(baseMA/2)))`.
+  Thus Ogre/Halfling/Goblins move 3, Black Orc 2, Human Blitzer/Catcher and Gutter
+  Runner 4, and Orc Blitzer/Rat Ogre 3. Display the effective value, remaining
+  squares and the actual path cost. Every orthogonal or diagonal step costs 1.
+- The displayed allowance is a hard cumulative cap per player per team turn.
+  Switching selection, several clicks, rerolls or fire must not grant extra
+  movement. Remove ground GFI bonus squares and unlimited on-fire movement.
+  Standing costs 1 movement. A prone player may instead pass without standing.
+- One-click runs remain, but reachable highlights and execution use the same
+  full path length around blockers. Stop the path on a fall, lost ball or a
+  pending decision; continue only when its failed check is successfully rerolled.
+- Start/inbound formations are in the receiving sides' own backcourts: Turbo
+  A at longitudinal row 2 and B at 13 (zero-based), Classic A at 5 and B at 20;
+  mirror in half two. Duos remain adjacent and swarms have distinct positions.
+- Maximum shooting range is 6 squares. Turbo flying dunks and teammate throws
+  launch from within 6 of the rim (the center line); Classic dunk range remains
+  3 and throw range 6. The opening formation plus movement cap must prevent an
+  uncontestable opening run-and-score/cannon. A later turnover near the hoop can
+  still create a legitimate immediate scoring chance; there is no artificial
+  minimum-possession-turn scoring ban.
 
-## 2. Module Architecture
+## 3. Ball-only contact and defensive reactions
 
-The game is organized into four modules with clear responsibilities. These are logical boundaries within this repository.
+- New matches expose **Swat ball**, not body Block/Blitz, Push, knockdown, armor
+  or injury commands. Reject legacy body-contact commands atomically in v3.
+- A standing defender adjacent to a standing or prone carrier may swat. Default
+  swat check is 3+, +1 if the carrier has Dodge and +1 if stronger than the
+  defender. Natural 1 fails, 6 succeeds. A successful swat releases and scatters
+  the ball; it does not knock the carrier down. The swatter is the last touch.
+- A carrier moving into or out of a standing enemy's reach provokes a reaction.
+  Each defender gets at most one movement reaction per opponent team turn:
+  1–3 miss, 4–5 bat the ball loose, 6 cleanly steal. A loose-ball result can
+  immediately be recovered if it scatters onto a player. Record every roll.
+- Leaving a marker also uses the carrier's normal AG dodge check. A failed dodge
+  can be rerolled normally; accepting the failure makes the runner stumble and
+  ends the team turn. No deliberate foul or injury is applied.
+- On a fall, the carrier rolls AG to hang on: natural 1 fails, 6 succeeds. A good
+  roll leaves the prone player holding the ball; failure releases and scatters
+  it. Falling ends the player's activation. An out-of-bounds entitlement or an
+  opponent recovery must not be overwritten by a second automatic turnover.
+- New rules use standing/prone states for falls. Fire and glass retain visual
+  spectacle and scoring style bonuses but never create armor/injury knockdowns.
 
-| Module Identifier | Development Area | Core Responsibility |
-| ----- | ----- | ----- |
-| `core` | Core Rules & Dice | Deterministic turn-based court state, Block dice (`Attacker Down`, `Push`, `Defender Stumbles`, `POW!`), 2D6 Armor/Injury tables, Turnover rules, and Team Rerolls. |
-| `gameplay` | Basketball & Rosters | 2v2 star duo rosters, 5-Goblin Swarm mechanics, Shot Clock, Alley-Oop leap resolution, `"He's On Fire!"` state machine, and backboard shatter hazards. |
-| `presentation` | Arcade VFX & Audio | Flaming dunk trails, exploding glass shard physics, hardwood skid marks, crowd hype meter, and 90s arcade announcer callouts (`"BOOMSHAKALAKA!"`, `"FROM DOWNTOWN!"`). |
-| `tabletop` | Print & Play Rules | Generates printable $15 \times 26$ hardwood court grids, custom 2v2 / 5-Goblin player stat cards, and quick-reference dunk/injury tables for physical tabletop play. |
+## 4. Loose balls, scatter, recovery and throw-ins
 
-## 3. Core Functional Requirements
+- Track the last player (and therefore team) to touch the ball on every release,
+  catch attempt, pickup, swat, bat, interception and inbound. Rolling on empty
+  ground does not change the last touch.
+- A loose ball scatters one square on a seeded **D8**: N, NE, E, SE, S, SW, W, NW
+  in that order (N decreases court x; E increases longitudinal y).
+- If it reaches an empty tile, it rests there. If it reaches a standing player,
+  attempt an immediate AG recovery. A failed catch counts as that player's touch
+  and bounces again. Bound chained recovery/bounce attempts at four; a rim also
+  rebounds, with bounded resolution. Preserve a valid, recoverable loose ball.
+- Players can enter a loose-ball tile and attempt pickup. A player already on it,
+  including a prone player, can **Recover ball**; prone recovery adds 1 to AG.
+  A failed recovery ends the activation and scatters it. A successful recovery
+  may be followed by an available move/pass. Immediate recovery/scatter rolls
+  are not reroll prompts; normal dodge/pass/catch/dunk checks retain rerolls.
+- A defender recovering/intercepting during the other team's action immediately
+  gains possession and the next team turn; no queued movement/pass continues.
+- When any scatter crosses any court boundary, stop scattering and award a
+  throw-in to the team that **did not touch it last**. A swatted-out ball is out
+  on the defender, not the former carrier. A fumbled-out ball is out on the
+  fumbler. Show who touched it and who gets the inbound.
+- Place the nearest eligible player of the entitled team at the nearest free
+  boundary tile (standing them for the restart if necessary). Only that team's
+  designated thrower can act until the throw-in is resolved. Inbound within
+  3 squares to a standing teammate or an empty tile; catch attempts can fail and
+  scatter again. Throwing in consumes the thrower's activation. Disallow an
+  inbound to the thrower's own tile, a rim, an opponent or out of bounds.
+- If the entitled side is already acting (e.g. a defending swat goes out), keep
+  its team turn. Otherwise switch once to the entitled side. Half/full-time
+  transitions supersede the restart. Never lose or double-apply the entitlement.
 
-### 3.1 Pitch & Roster Rules (`gameplay`)
+## 5. Passing, including from the ground
 
-* **Court Dimensions:** $15 \times 26$ square hardwood grid featuring 3-point arcs, painted key zones, bleachers bordering the sidelines (for crowd-surf injury rolls), and elevated rim/backboard tiles at each end.
+- A standing **or prone** ball carrier may pass to a standing teammate within
+  6 squares. Passing while prone adds 1 to the normal AG pass target; adjacent
+  enemies do not disable the action. Passing ends the passer's activation.
+- A standing opponent adjacent to the passer can strip or bat the release.
+  For each release, a defender rolls once: 1–3 miss, 4–5 bat loose, 6 clean steal.
+- After a successful AG release, trace the pass using a deterministic supercover
+  grid line. Every traversed square adjacent to or occupied by a standing enemy
+  is contested, including the receiver area. Test defenders in flight order with
+  stable ID tie-breaking. A defender already tested at release is not tested
+  twice on that pass. Each gets the same miss/bat/steal roll.
+- A clean interception gives that defender possession. A bat releases/scatters
+  the ball at the contested flight square, with the defender as last touch.
+  Neither result harms a player's body or continues the original pass chain.
+- If no defender stops it, resolve the usual catch. A failed pass/catch scatters
+  at the receiver area with the correct passer/receiver last touch and causes
+  the normal dropped-pass turnover unless an earlier recovery/restart has
+  already changed control. Catch and Dodge skills and team rerolls still apply.
+- Retain exactly deterministic seeded events and replay for standing/prone,
+  adjacent-release and multiple-contested-square cases. Illegal pass inputs must
+  not change the state or consume RNG.
 
-* **Asymmetric Roster Formats:**
+## 6. Arcade fantasy spectacle
 
-  * **Standard 2v2 Star Duos:** Coaches draft 2 iconic *Blood Bowl* players from classic factions:
+- Keep flaming spin dunks, 360°/720°/Gorilla Flip styles, alley-oops, crowd hype,
+  screen impact, announcer calls and optional audio. Two forward steps set up a
+  Turbo dunk, three in Classic; neither fire nor presentation bypasses MA/range.
+- Keep the Ogre/Halfling and five-Goblin ladder/teammate-throw combinations. They
+  now need setup and range, rather than scoring directly from the opening spot.
+- Up to three aerial 2+ spin checks remain; they do not grant ground squares.
+- Three unanswered baskets by one player ignite them; the +2 three/dunk AG bonus
+  and flaming presentation remain, without unlimited movement or injury effects.
+- Qualifying POW-powered flaming spin dunks can shatter, add +1 style point and
+  show glass. Glass is visual in v3; do not reinstate armor or forced injuries.
 
-    * *Reikland Reavers:* Human Blitzer (`MA 7, ST 3, AG 3+`) + Human Catcher (`MA 8, ST 2, AG 2+`, `Catch`, `Dodge`).
+## 7. Delivery, compatibility and acceptance
 
-    * *Gouged Eye:* Black Orc (`MA 4, ST 4, AG 5+`, `Grab`, `Brawler`) + Orc Blitzer (`MA 6, ST 3, AG 3+`, `Block`).
-
-    * *Skavenblight:* Gutter Runner (`MA 9, ST 2, AG 2+`, `Dodge`, `Weeping Dagger`) + Rat Ogre (`MA 6, ST 5, AG 4+`, `Frenzy`, `Prehensile Tail`).
-
-    * *Grak & Crumbleberry:* Ogre (`MA 5, ST 5, AG 4+`, `Throw Team-Mate`) + Halfling (`MA 5, ST 2, AG 3+`, `Right Stuff`).
-
-  * **The "5-Goblin" Swarm Rule Exception:** Goblin coaches may field **5 Goblins simultaneously** against any 2-player opponent. Individual Goblins suffer `-2 ST` on blocks against `ST 4+` Big Guys, but gain `Stunty`, `Dodge`, `Right Stuff`, and the **Goblin Ladder** action—allowing 3 Goblins to stack vertically to contest rim-height dunks or launch the ball-carrier via `Throw Team-Mate` straight through the hoop.
-
-* **No Fouls, Only Turnovers:** Goblin referees are strictly bribed or KO'd pre-game. Pushing, shoving, and one `Blitz` per turn are completely legal. A **Turnover** triggers only on a failed `Dodge`, failed `Go For It (GFI)`, dropped `Pass/Catch`, Shot Clock expiration (4 turns), or a botched `Dunk` landing.
-
-### 3.2 Signature *NBA Jam* Mechanics (`gameplay`)
-
-* **Flaming Spin Dunks & Alley-Oops:**
-
-  * Moving at least 3 squares toward the key and passing an `Agility (AG)` + `Leap` check launches an aerial dunk sequence.
-
-  * Coaches may chain up to three `GFI` (`2+`) rolls mid-air to add **Spin Modifiers** ($360^\circ$, $720^\circ$, *Gorilla Flip*), granting $+1$ per spin to beat defending blockers at the rim and multiplying crowd hype.
-
-  * **Alley-Oop Pass:** A teammate within 6 squares of the hoop can `Pass` to a mid-air leaping teammate, bypassing ground tackle zones and automatically triggering a Slam Dunk attempt.
-
-* **`"HE'S ON FIRE!"` Status Effect:**
-
-  * Scoring 3 consecutive baskets with the same player without the opposing team scoring ignites that player in literal flames.
-
-  * **On-Fire Buffs:** Unlimited `GFI` movement squares without rolling, $+2\text{ AG}$ on all 3-pointers and dunks, immunity to standard `Push` results, and an ignited basketball that forces an `Armor Roll` on any defender who intercepts or steals it.
-
-* **Glass Backboard Shatter:**
-
-  * Executing a `POW!`-powered flaming spin dunk with a `ST 4+` player (or a thrown Goblin/Halfling) shatters the glass backboard.
-
-  * Awards **+1 Bonus Style Point** and showers the painted key in hazardous glass shards, inflicting $+1$ to all `Armor Rolls` on knockdowns inside the paint for the remainder of the half.
-
-## 4. Technical Stack & Development Milestones
-
-* **Core Logic (`core`):** Deterministic TypeScript or Rust state machine with full turn replay serialization and AI coach sparring bots.
-
-* **Client & Presentation (`presentation`):** Godot 4.3+ or Unity 2D-HD isometric sprite/low-poly hybrid camera with exaggerated 16-bit hit-stop, screen shake, and announcer callouts.
-
-* **Milestone 1 (Core Court & 2v2 Loop):** $15 \times 26$ grid movement, Block dice resolution, passing/shooting mechanics, and Turnover state machine.
-
-* **Milestone 2 (5-Goblin Swarm & Spin Dunks):** Asymmetric 5-Goblin roster rules, Goblin Ladder / `Throw Team-Mate` dunks, `"He's On Fire!"` streak logic, and backboard shatter hazards.
-
-* **Milestone 3 (Arcade Juice & Printable Tabletop Kit):** Flaming particle trails, retro announcer audio triggers, and printable PDF pitch/stat cards via `tabletop`.
+- TypeScript core with immutable commands, seeded RNG, legal-actions API, AI,
+  serializable pending decisions and exact replay. V3 config/rules mismatch or
+  malformed JSON must be rejected before mutation. Preserve historical v1/v2
+  replay behavior behind the absence of the v3 ruleset flag.
+- Update browser controls, overlays, play-by-play, help, roster cards and printed
+  rules together. Prone pass, swat, recover and entitled throw-in must all be
+  discoverable and usable in solo AI and local hotseat. Old saves must not silently
+  resume with a different ruleset; load legacy matches read-only in replay theater
+  and offer the updated match setup.
+- Tests must show: exact movement caps across multiple clicks/rerolls/fire;
+  no opening uncontestable scoring play for every faction; clean swats and
+  reactive defense; falls with retained and lost balls; last-touch-correct
+  throw-ins on every edge; recoveries and bounded bounce chains; prone and
+  contested passes; AI completion and exact v3 replay; preserved legacy tests.
+- Commit PRD/design/plan before implementation, then use the requested
+  subagent-driven workflow, task reviews, and final review. Publish the verified
+  update through the existing GitHub Pages workflow on codex/browser-game.
