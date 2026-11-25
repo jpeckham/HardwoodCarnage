@@ -6,3 +6,5 @@ export {applyCommand,legalActions,validateCommand} from './actions.js';
 export {serializeReplay,replayMatch} from './replay.js';
 export {chooseAiCommand} from './ai.js';
 export {reachableMoves} from './paths.js';
+export {effectiveMA,isPossessionGame,movementRemaining,POSSESSION_RULES} from './rules.js';
+export {awardThrowIn,markTouch,performThrowIn,recoverBall,scatterBall} from './ball.js';

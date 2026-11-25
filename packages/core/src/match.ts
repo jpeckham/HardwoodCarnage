@@ -2,9 +2,11 @@ import { ROSTERS, type RosterName } from './rosters.js';
 import { seedRng, nextD6 } from './dice.js';
 import { clampToCourt, courtSize, inBounds, inPaint, isRim, rim, same, distance, type Position } from './court.js';
 import type { MatchConfig, MatchState, Player, Side } from './types.js';
+import { effectiveMA, isPossessionGame, POSSESSION_RULES } from './rules.js';
 
 export const RULES='hardwood-arcade/1.0.0';
 export const ARCADE_RULES='hardwood-arcade/2.0.0';
+export const rulesForConfig=(config:MatchConfig):string=>config.ruleset==='possession'?POSSESSION_RULES:config.court==='arcade'?ARCADE_RULES:RULES;
 export const other=(s:Side):Side=>s==='A'?'B':'A';
 export const team=(s:MatchState,id:Side)=>s.teams.find(t=>t.id===id)!;
 export function player(s:MatchState,id:string):Player {
@@ -26,37 +28,39 @@ export function validateConfig(c:unknown):asserts c is MatchConfig {
   const v=c as MatchConfig;
   if(typeof v.teamA!=='string' || typeof v.teamB!=='string' || !Object.hasOwn(ROSTERS,v.teamA) || !Object.hasOwn(ROSTERS,v.teamB)) throw new Error('Unknown roster');
   if(v.court!==undefined && v.court!=='classic' && v.court!=='arcade')throw new Error('Unknown court mode');
+  if(v.ruleset!==undefined && v.ruleset!=='possession')throw new Error('Unknown ruleset');
   if(v.teamA==='Goblin Swarm' && v.teamB==='Goblin Swarm') throw new Error('Five Goblins must face a standard duo');
 }
 export function createMatch(config:MatchConfig,seed:number):MatchState {
   validateConfig(config);
   const rng=seedRng(seed);
-  const s:MatchState={rules:config.court==='arcade'?ARCADE_RULES:RULES,config:{teamA:config.teamA,teamB:config.teamB,...(config.court?{court:config.court}:{})},seed,rng,
+  const s:MatchState={rules:rulesForConfig(config),config:{teamA:config.teamA,teamB:config.teamB,...(config.court?{court:config.court}:{}),...(config.ruleset?{ruleset:config.ruleset}:{})},seed,rng,
     teams:[],players:[],current:'A',possession:'A',ball:{carrier:null,pos:{x:7,y:13},hot:false},
     half:1,turn:0,shotClock:4,active:null,over:false,pending:null,glass:[],ladders:[],hype:0,events:[],commands:[]};
   const armor:Record<string,number>={'Human Blitzer':9,'Human Catcher':8,'Black Orc':10,'Orc Blitzer':9,'Gutter Runner':8,'Rat Ogre':9,'Ogre':10,'Halfling':7};
   for(const id of ['A','B'] as const) {
     const name:RosterName=id==='A'?config.teamA:config.teamB;
     s.teams.push({id,name,score:0,rerolls:3,rerollUsed:false,blitzUsed:false});
-    ROSTERS[name].forEach((r,i)=>s.players.push({...structuredClone(r),id:`${id}${i}`,team:id,pos:{x:0,y:0},armor:armor[r.name]??8,
+    ROSTERS[name].forEach((r,i)=>s.players.push({...structuredClone(r),...(isPossessionGame(s)?{ma:effectiveMA(r.ma)}:{}),id:`${id}${i}`,team:id,pos:{x:0,y:0},armor:armor[r.name]??8,
       status:'standing',moved:0,forward:0,used:false,offCourt:false,skillUsed:[],streak:0,fire:false}));
   }
   setup(s,'A'); event(s,'start','WELCOME TO HARDWOOD CARNAGE!'); return s;
 }
 export function setup(s:MatchState,receiving:Side):void {
   s.ladders=[];
-  const c=courtSize(s),arcade=s.config.court==='arcade';
+  const c=courtSize(s),arcade=s.config.court==='arcade',possession=isPossessionGame(s);
+  if(possession)s.throwIn=null;
   for(const id of ['A','B'] as const) {
     const roster=s.players.filter(p=>p.team===id);
     roster.forEach((p,i)=>{
-      const y=id==='A'?(arcade?6:10):(arcade?9:15);
-      p.pos={x:roster.length===5?(arcade?i*2:3+i*2):(arcade?3+i:6+i*2),y:s.half===1?y:c.length-1-y};
+      const y=possession?(id==='A'?(arcade?2:5):(arcade?13:20)):(id==='A'?(arcade?6:10):(arcade?9:15));
+      p.pos={x:roster.length===5?(arcade?i*2:3+i*2):(arcade?3+i:possession?6+i:6+i*2),y:s.half===1?y:c.length-1-y};
       p.moved=0; p.forward=0;
       p.offCourt=false;
     });
   }
   const receiver=(arcade?s.players.find(p=>p.team===receiving&&p.status==='standing'&&p.skills.includes('Right Stuff')):undefined)??s.players.find(p=>p.team===receiving && p.status==='standing');
-  s.ball={carrier:receiver?.id??null,pos:receiver?{...receiver.pos}:{x:c.center,y:Math.floor(c.length/2)},hot:receiver?.fire??false};
+  s.ball={carrier:receiver?.id??null,pos:receiver?{...receiver.pos}:{x:c.center,y:Math.floor(c.length/2)},hot:receiver?.fire??false,...(possession&&receiver?{lastTouch:receiver.id}:{})};
   s.possession=receiving; s.shotClock=4; s.active=null;
 }
 export function finish(s:MatchState,id:string):void { player(s,id).used=true; s.active=null; }
@@ -70,7 +74,10 @@ export function endTurn(s:MatchState,reason?:string):void {
     }
   }
   s.pending=null; s.active=null; s.turn++; s.current=other(s.current);
-  if(s.turn===turns*4) {s.over=true; event(s,'final',`FINAL — ${team(s,'A').score} : ${team(s,'B').score}`);return;}
+  if(s.turn===turns*4) {
+    if(isPossessionGame(s))s.throwIn=null;
+    s.over=true; event(s,'final',`FINAL — ${team(s,'A').score} : ${team(s,'B').score}`);return;
+  }
   if(s.turn===turns*2) {
     s.half=2; s.glass=[];
     for(const t of s.teams) t.rerolls=3;
@@ -86,7 +93,7 @@ export function endTurn(s:MatchState,reason?:string):void {
   event(s,'turn',`${team(s,s.current).name} — turn ${Math.floor((s.turn%(turns*2))/2)+1} of ${turns}`);
 }
 export function loseBall(s:MatchState,p:Player):void {
-  if(s.ball.carrier===p.id) s.ball={carrier:null,pos:clampToCourt(p.pos,s),hot:s.ball.hot||p.fire};
+  if(s.ball.carrier===p.id) s.ball={carrier:null,pos:clampToCourt(p.pos,s),hot:s.ball.hot||p.fire,...(isPossessionGame(s)?{lastTouch:p.id}:{})};
 }
 export function injure(s:MatchState,p:Player,source?:Player,crowd=false):void {
   s.ladders=s.ladders.filter(ids=>!ids.includes(p.id));
@@ -104,10 +111,10 @@ export function injure(s:MatchState,p:Player,source?:Player,crowd=false):void {
 }
 export function collectBall(s:MatchState,p:Player,hot=false):void {
   const oldPossession=s.possession;
-  s.ball={carrier:p.id,pos:{...p.pos},hot:hot||p.fire};
+  s.ball={carrier:p.id,pos:{...p.pos},hot:hot||p.fire,...(isPossessionGame(s)?{lastTouch:p.id}:{})};
   s.possession=p.team;
   if(oldPossession!==p.team) s.shotClock=4;
-  if(hot && oldPossession!==p.team) {
+  if(hot && oldPossession!==p.team && !isPossessionGame(s)) {
     event(s,'fire','THE BALL IS BURNING!',p);
     // A flaming-ball steal forces armor without automatically knocking down.
     const oldStatus=p.status;

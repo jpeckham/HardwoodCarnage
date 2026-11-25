@@ -1,10 +1,11 @@
 import { distance, neighbors, same, type Position } from './court.js';
 import { player, validCell } from './match.js';
+import { movementRemaining } from './rules.js';
 import type { Command, MatchState } from './types.js';
 export function movementPaths(s:MatchState,id:string):Position[][] {
   const p=player(s,id);
-  if(p.team!==s.current||p.used||p.offCourt||p.status!=='standing'||s.pending||s.over||(s.active&&s.active!==id))return [];
-  const budget=p.fire?390:Math.max(0,p.ma+2-p.moved),paths:Position[][]=[];
+  if(p.team!==s.current||p.used||p.offCourt||p.status!=='standing'||s.pending||s.throwIn||s.over||(s.active&&s.active!==id))return [];
+  const budget=movementRemaining(s,p),paths:Position[][]=[];
   const queue:{pos:Position;path:Position[]}[]=[{pos:p.pos,path:[]}],seen=new Set([`${p.pos.x},${p.pos.y}`]);
   for(let i=0;i<queue.length;i++) {
     const entry=queue[i]!;if(entry.path.length>=budget)continue;

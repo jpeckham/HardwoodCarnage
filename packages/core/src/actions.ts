@@ -1,6 +1,6 @@
 import { distance, inBounds, isRim, neighbors, rim, same, shotPoints } from './court.js';
 
-import { available, createMatch, endTurn, enemies, event, finish, occupant, player, team, validCell } from './match.js';
+import { endTurn, enemies, event, finish, player, team, validCell } from './match.js';
 
 import { brawler, chooseBlock, follow, push, rerollBlock, startBlock } from './blocks.js';
 
@@ -13,6 +13,10 @@ import { movementSteps } from './movement.js';
 import { pathTo, reachableMoves } from './paths.js';
 
 import { aerialSteps, canAerial, canFormLadder, ladderHelpers } from './aerial.js';
+
+import { canRecoverBall, performThrowIn, recoverBall, throwInActions } from './ball.js';
+
+import { isPossessionGame, movementRemaining } from './rules.js';
 
 const assert=(condition:unknown,message:string):void=>{if(!condition) throw new Error(message);};
 
@@ -33,6 +37,7 @@ const check=(p:Player,label:string,target:number,success:Step[],failure:Step[],s
 const done=(p:Player):Step=>({type:'finish',playerId:p.id});
 
 const turnover=(reason:string):Step=>({type:'turnover',reason});
+const shotInRange=(s:MatchState,p:Player):boolean=>!isPossessionGame(s)||distance(p.pos,rim(p.team,s.half,s))<=6;
 
 function pass(s:MatchState,p:Player,targetId:string):void {
 
@@ -56,17 +61,26 @@ function shoot(s:MatchState,p:Player):void {
 
   const target=rim(p.team,s.half,s),points=shotPoints(p.pos,target,s);
 
+  assert(shotInRange(s,p),'Shot is out of range');
+
   const mod=(points===3?1:0)+enemies(s,p).length-(points===3&&p.fire?2:0);
 
   resolveSteps(s,[{type:'clockReset'},check(p,'Shot',p.ag+mod,[{type:'score',playerId:p.id,points,dunk:false,spins:0,thrown:false}],
 
-    [{type:'event',kind:'miss',text:'OFF THE RIM!',playerId:p.id},{type:'ball',playerId:null,pos:{x:target.x,y:target.y===1?2:target.y-1}},done(p)])]);
+    [{type:'event',kind:'miss',text:'OFF THE RIM!',playerId:p.id},
+      isPossessionGame(s)?{type:'scatter',from:target,lastTouchId:p.id}:{type:'ball',playerId:null,pos:{x:target.x,y:target.y===1?2:target.y-1}},
+      done(p)])]);
 
 }
 
 function execute(s:MatchState,c:Command):void {
 
   assert(!s.over,'Match is over');
+
+  if(s.throwIn) {
+    if(c.type!=='throwIn')throw new Error('Complete the throw-in first');
+    performThrowIn(s,c.playerId,c.to);return;
+  }
 
   if(s.pending) {
 
@@ -98,13 +112,23 @@ function execute(s:MatchState,c:Command):void {
 
   if(!('playerId' in c)) return;
 
+  if(c.type==='recover') {
+    const p=player(s,c.playerId);
+    assert(isPossessionGame(s)&&canRecoverBall(s,p),'Player cannot recover the ball here');
+    s.active=p.id;recoverBall(s,p);return;
+  }
+
+  if(c.type==='throwIn')throw new Error('No throw-in is pending');
+
   if(c.type==='stand') {
 
     const p=player(s,c.playerId);
 
     assert(p.status==='prone' && !p.offCourt && p.team===s.current && !p.used && (!s.active||s.active===p.id),'Cannot stand');
 
-    p.status='standing';p.moved=3;s.active=p.id;event(s,'stand',`${p.name} gets up`,p);return;
+    const possession=isPossessionGame(s);
+    assert(!possession||movementRemaining(s,p)>0,'Standing requires one movement square');
+    p.status='standing';p.moved=possession?p.moved+1:3;s.active=p.id;event(s,'stand',`${p.name} gets up`,p);return;
 
   }
 
@@ -193,7 +217,7 @@ export function validateCommand(c:unknown):asserts c is Command {
 
   if(type==='chooseBlock'||type==='brawler') {assert(Number.isInteger(v.index) && (v.index as number)>=0,'Invalid die index');return;}
 
-  if(type==='move'||type==='run'||type==='push') {
+  if(type==='move'||type==='run'||type==='push'||type==='throwIn') {
 
     const to=v.to as {x:unknown;y:unknown}|undefined;
 
@@ -203,11 +227,11 @@ export function validateCommand(c:unknown):asserts c is Command {
 
   }
 
-  assert(['move','run','stand','shoot','steal','endActivation','formLadder','pass','block','dunk','ladder','alleyOop','throwTeamMate'].includes(type as string),'Unknown command');
+  assert(['move','run','stand','shoot','steal','endActivation','formLadder','pass','block','dunk','ladder','alleyOop','throwTeamMate','recover','throwIn','swat'].includes(type as string),'Unknown command');
 
   assert(typeof v.playerId==='string','Invalid player ID');
 
-  if(['pass','steal','block','alleyOop','throwTeamMate'].includes(type as string)) assert(typeof v.targetId==='string','Invalid target ID');
+  if(['pass','steal','block','alleyOop','throwTeamMate','swat'].includes(type as string)) assert(typeof v.targetId==='string','Invalid target ID');
 
   if(type==='block') assert(typeof v.blitz==='boolean','Invalid Blitz flag');
 
@@ -219,6 +243,9 @@ export function applyCommand(state:MatchState,command:Command):MatchState {
 
   validateCommand(command);
 
+  assert(state.config.ruleset===undefined||state.config.ruleset==='possession','Unknown ruleset');
+  assert(isPossessionGame(state)===(state.config.ruleset==='possession'),'Match rules and configuration do not match');
+
   const s=structuredClone(state); execute(s,command);s.commands.push(structuredClone(command));return s;
 
 }
@@ -226,6 +253,8 @@ export function applyCommand(state:MatchState,command:Command):MatchState {
 export function legalActions(s:MatchState,playerId?:string):Command[] {
 
   if(s.over) return [];
+
+  if(s.throwIn)return throwInActions(s,playerId);
 
   const b=s.pending;
 
@@ -255,19 +284,26 @@ export function legalActions(s:MatchState,playerId?:string):Command[] {
 
   const result:Command[]=[{type:'endTurn'}];
 
+  const possession=isPossessionGame(s);
+
   for(const p of s.players.filter(p=>p.team===s.current && !p.used && !p.offCourt && (!playerId||p.id===playerId) && (!s.active||s.active===p.id))) {
 
-    if(p.status==='prone') {result.push({type:'stand',playerId:p.id});continue;}
+    if(possession&&canRecoverBall(s,p))result.push({type:'recover',playerId:p.id});
+
+    if(p.status==='prone') {
+      if(!possession||movementRemaining(s,p)>0)result.push({type:'stand',playerId:p.id});
+      continue;
+    }
 
     if(p.status!=='standing') continue;
 
     result.push({type:'endActivation',playerId:p.id});
 
-    if(s.config.court==='arcade')result.push(...reachableMoves(s,p.id));
+    if(possession||s.config.court==='arcade')result.push(...reachableMoves(s,p.id));
 
     if(canFormLadder(s,p)) result.push({type:'formLadder',playerId:p.id});
 
-    if(p.fire || p.moved<p.ma+2) for(const to of neighbors(p.pos)) if(validCell(s,to)) result.push({type:'move',playerId:p.id,to});
+    if(movementRemaining(s,p)>0) for(const to of neighbors(p.pos)) if(validCell(s,to)) result.push({type:'move',playerId:p.id,to});
 
     for(const q of s.players.filter(q=>q.id!==p.id && !q.offCourt && q.status==='standing')) {
 
@@ -295,7 +331,7 @@ export function legalActions(s:MatchState,playerId?:string):Command[] {
 
     if(s.ball.carrier===p.id) {
 
-      result.push({type:'shoot',playerId:p.id});
+      if(shotInRange(s,p))result.push({type:'shoot',playerId:p.id});
 
       for(const type of ['dunk','ladder'] as const) for(let spins=0;spins<=3;spins++) {const c:Command={type,playerId:p.id,spins};if(canAerial(s,c))result.push(c);}
 

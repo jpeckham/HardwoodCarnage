@@ -10,6 +10,9 @@ export function commandLabel(c:Command,s:MatchState):string {
     case 'stand':return 'Stand up · 3 movement';
     case 'shoot':return 'Shoot';
     case 'steal':return `Steal from ${name(c.targetId!)}`;
+    case 'swat':return `Swat ball from ${name(c.targetId)}`;
+    case 'recover':return 'Recover ball';
+    case 'throwIn':return `Throw in to ${coords(c.to)}`;
     case 'pass':return `Pass to ${name(c.targetId)}`;
     case 'block':return `${c.blitz?'Blitz':'Block'} ${name(c.targetId)}`;
     case 'dunk':return s.config.court==='arcade'?'Half-court sky jam':'Slam dunk';

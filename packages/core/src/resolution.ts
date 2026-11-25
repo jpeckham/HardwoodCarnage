@@ -2,6 +2,8 @@ import { movementSteps } from './movement.js';
 import { distance, rim } from './court.js';
 import { collectBall, endTurn, event, finish, injure, player, roll, scoreBasket, team } from './match.js';
 import type { MatchState, Step } from './types.js';
+import { recoverBall, scatterBall } from './ball.js';
+import { isPossessionGame } from './rules.js';
 
 export function canReroll(s:MatchState,check:Extract<Step,{type:'check'}>):('team'|'skill')[] {
   const p=player(s,check.playerId), t=team(s,p.team);
@@ -33,7 +35,15 @@ export function resolveSteps(s:MatchState,steps:Step[]):void {
     } else if(step.type==='knock') {const p=player(s,step.playerId); event(s,'knock',`${p.name} hits the hardwood`,p);injure(s,p,step.sourceId?player(s,step.sourceId):undefined);}
     else if(step.type==='ball') {
       if(step.playerId) collectBall(s,player(s,step.playerId),step.hot??false);
-      else s.ball={carrier:null,pos:{...(step.pos??s.ball.pos)},hot:step.hot??s.ball.hot};
+      else s.ball={carrier:null,pos:{...(step.pos??s.ball.pos)},hot:step.hot??s.ball.hot,
+        ...(isPossessionGame(s)&&s.ball.lastTouch!==undefined?{lastTouch:s.ball.lastTouch}:{})};
+    } else if(step.type==='recover') {
+      const turn=s.turn;
+      if(!recoverBall(s,player(s,step.playerId))||s.turn!==turn||s.throwIn)return;
+    } else if(step.type==='scatter') {
+      const turn=s.turn;
+      scatterBall(s,step.from,step.lastTouchId);
+      if(s.turn!==turn||s.throwIn)return;
     } else if(step.type==='finish') {finish(s,step.playerId);return;}
     else if(step.type==='turnover') {endTurn(s,step.reason);return;}
     else if(step.type==='score') {scoreBasket(s,player(s,step.playerId),step.points,step.dunk,step.spins,step.thrown);return;}

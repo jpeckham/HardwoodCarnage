@@ -19,6 +19,13 @@ export function shotPoints(p:Position,target:Position,context?:Context):number {
   return (p.x-target.x)**2+(p.y-target.y)**2>courtSize(context).arc**2?3:2;
 }
 export function clampToCourt(p:Position,context?:Context):Position {const c=courtSize(context);return {x:Math.max(0,Math.min(c.width-1,p.x)),y:Math.max(0,Math.min(c.length-1,p.y))};}
+export function exitBoundary(out:Position,context?:Context):Position[] {
+  const c=courtSize(context),anchor=clampToCourt(out,context),cells:Position[]=[];
+  for(let x=0;x<c.width;x++) for(let y=0;y<c.length;y++) {
+    if((x===anchor.x&&x!==out.x)||(y===anchor.y&&y!==out.y))cells.push({x,y});
+  }
+  return cells.sort((a,b)=>distance(a,anchor)-distance(b,anchor));
+}
 export function neighbors(p:Position):Position[] {
   const cells:Position[]=[];
   for(let x=-1;x<=1;x++) for(let y=-1;y<=1;y++) if(x || y) cells.push({x:p.x+x,y:p.y+y});
