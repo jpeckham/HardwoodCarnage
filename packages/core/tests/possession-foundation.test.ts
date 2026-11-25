@@ -334,3 +334,54 @@ describe('possession replay', () => {
     assertAtomic(s, { type: 'endTurn' });
   });
 });
+
+describe.each(['classic', 'arcade'] as const)('flag-absent %s ignores possession-only state', court => {
+  const legacy = () => createMatch({ teamA: config.teamA, teamB: config.teamB, ...(court === 'arcade' ? { court } : {}) }, 8);
+  const foreignRestart = (s: MatchState) => {
+    const spot = get(s).pos;
+    s.throwIn = { team: 'A', spot, throwerId: 'A0' };
+    return { x: spot.x - 1, y: spot.y };
+  };
+
+  it('never offers a throw-in supplied on a legacy state', () => {
+    const s = legacy();
+    foreignRestart(s);
+    expect(offered(s, 'throwIn')).toBe(false);
+  });
+
+  it('atomically rejects a throw-in supplied on a legacy state', () => {
+    const s = legacy();
+    const to = foreignRestart(s);
+    assertAtomic(s, { type: 'throwIn', playerId: 'A0', to });
+    expect(applyCommand(s, { type: 'endTurn' }).turn).toBe(1);
+  });
+
+  it('continues to offer and execute ordinary legacy runs even with a foreign restart field', () => {
+    const s = legacy();
+    const to = foreignRestart(s);
+    const run = { type: 'run', playerId: 'A0', to } as const;
+    expect(core.reachableMoves(s, 'A0')).toContainEqual(run);
+    const result = applyCommand(s, run);
+    expect(get(result).pos).toEqual(to);
+  });
+
+  it.each([
+    ['touch', (s: MatchState) => core.markTouch(s, 'A0')],
+    ['scatter', (s: MatchState) => scatterBall(s, { x: 0, y: 8 }, 'A0')],
+    ['scatter without a touch override', (s: MatchState) => scatterBall(s, { x: 7, y: 8 })],
+    ['edge award', (s: MatchState) => awardThrowIn(s, { x: -1, y: 8 }, 'A0')],
+    ['edge award without a touch override', (s: MatchState) => awardThrowIn(s, { x: -1, y: 8 })],
+    ['recovery', (s: MatchState) => core.recoverBall(s, get(s))],
+    ['inbound', (s: MatchState) => {
+      const spot = s.throwIn!.spot;
+      core.performThrowIn(s, 'A0', { x: spot.x - 1, y: spot.y });
+    }],
+  ] as const)('rejects the public possession %s helper before mutating a legacy match', (action, invoke) => {
+    const s = legacy();
+    if (action === 'recovery') s.ball.carrier = null;
+    if (action === 'inbound') foreignRestart(s);
+    const before = structuredClone(s);
+    expect(() => invoke(s)).toThrow();
+    expect(s).toEqual(before);
+  });
+});

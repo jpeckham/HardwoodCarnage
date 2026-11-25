@@ -77,7 +77,7 @@ function execute(s:MatchState,c:Command):void {
 
   assert(!s.over,'Match is over');
 
-  if(s.throwIn) {
+  if(isPossessionGame(s)&&s.throwIn) {
     if(c.type!=='throwIn')throw new Error('Complete the throw-in first');
     performThrowIn(s,c.playerId,c.to);return;
   }
@@ -254,7 +254,8 @@ export function legalActions(s:MatchState,playerId?:string):Command[] {
 
   if(s.over) return [];
 
-  if(s.throwIn)return throwInActions(s,playerId);
+  const possession=isPossessionGame(s);
+  if(possession&&s.throwIn)return throwInActions(s,playerId);
 
   const b=s.pending;
 
@@ -283,8 +284,6 @@ export function legalActions(s:MatchState,playerId?:string):Command[] {
   }
 
   const result:Command[]=[{type:'endTurn'}];
-
-  const possession=isPossessionGame(s);
 
   for(const p of s.players.filter(p=>p.team===s.current && !p.used && !p.offCourt && (!playerId||p.id===playerId) && (!s.active||s.active===p.id))) {
 

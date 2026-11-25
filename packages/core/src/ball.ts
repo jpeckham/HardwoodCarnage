@@ -1,6 +1,7 @@
 import { clampToCourt, distance, exitBoundary, inBounds, isRim, neighbors, same, type Position } from './court.js';
 import { nextD8 } from './dice.js';
 import { available, collectBall, endTurn, event, finish, occupant, other, player, roll } from './match.js';
+import { isPossessionGame } from './rules.js';
 import type { Command, MatchState, Player } from './types.js';
 
 const directions=[
@@ -10,7 +11,12 @@ const directions=[
 const MAX_BOUNCES=4;
 const INBOUND_RANGE=3;
 
+function requirePossessionRules(s:MatchState):void {
+  if(!isPossessionGame(s))throw new Error('This ball rule requires the possession ruleset');
+}
+
 export function markTouch(s:MatchState,playerId:string):void {
+  requirePossessionRules(s);
   s.ball.lastTouch=playerId;
 }
 
@@ -39,11 +45,12 @@ export function recoverBall(s:MatchState,p:Player):boolean {
 }
 
 export function canRecoverBall(s:MatchState,p:Player):boolean {
-  return !s.pending&&!s.throwIn&&!s.over&&p.team===s.current&&!p.used&&!p.offCourt&&(p.status==='standing'||p.status==='prone')
+  return isPossessionGame(s)&&!s.pending&&!s.throwIn&&!s.over&&p.team===s.current&&!p.used&&!p.offCourt&&(p.status==='standing'||p.status==='prone')
     &&(!s.active||s.active===p.id)&&!s.ball.carrier&&same(p.pos,s.ball.pos);
 }
 
 export function scatterBall(s:MatchState,from:Position,lastTouchId?:string):void {
+  requirePossessionRules(s);
   if(lastTouchId!==undefined)markTouch(s,lastTouchId);
   if(!inBounds(from,s)){awardThrowIn(s,from);return;}
   // A rim is never a resting tile, even if every allowed bounce is exhausted.
@@ -67,6 +74,7 @@ export function scatterBall(s:MatchState,from:Position,lastTouchId?:string):void
 }
 
 export function awardThrowIn(s:MatchState,out:Position,lastTouchId?:string):void {
+  requirePossessionRules(s);
   if(lastTouchId!==undefined)markTouch(s,lastTouchId);
   const touch=s.ball.lastTouch===undefined?undefined:player(s,s.ball.lastTouch);
   const entitled=other(touch?.team??s.possession),anchor=clampToCourt(out,s);
@@ -96,7 +104,7 @@ export function awardThrowIn(s:MatchState,out:Position,lastTouchId?:string):void
 
 function canThrowInTo(s:MatchState,playerId:string,to:Position):boolean {
   const restart=s.throwIn;
-  if(!restart||restart.throwerId!==playerId||restart.team!==s.current
+  if(!isPossessionGame(s)||!restart||restart.throwerId!==playerId||restart.team!==s.current
     ||!inBounds(to,s)||isRim(to,s)||same(restart.spot,to)||distance(restart.spot,to)>INBOUND_RANGE)return false;
   const target=occupant(s,to);
   return !target||(target.team===restart.team&&target.status==='standing');
